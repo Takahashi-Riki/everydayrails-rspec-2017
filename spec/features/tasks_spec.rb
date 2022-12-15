@@ -1,25 +1,51 @@
 require 'rails_helper'
 
 RSpec.feature "Tasks", type: :feature do
-  scenario "user toggles a task", js: true do
-    user = FactoryBot.create(:user)
-    project = FactoryBot.create(
+  let(:user){ FactoryBot.create(:user) }
+  let(:project){
+    FactoryBot.create(
       :project,
       name: "RSpec tutorial",
       owner: user
     )
-    task = project.tasks.create!(name: "Finish RSpec tutorial")
+  }
+  let!(:task){ project.tasks.create!(name: "Finish RSpec tutorial") }
 
+  scenario "user toggles a task", js: true do
+    login_as user, scope: :user
+    go_to_project "RSpec tutorial"
+
+    completed_task "Finish RSpec tutorial"
+    expect_complete_task "Finish RSpec tutorial"
+
+    undo_complete_task "Finish RSpec tutorial"
+    expect_incomplete_task "Finish Rspec tutorial"
+  end
+
+  def go_to_project(name)
     visit root_path
-    click_link "Sign in"
-    fill_in "Email", with: user.email
-    fill_in "Password", with: user.password
-    click_button "Log in"
+    click_link name
+  end
 
-    click_link "RSpec tutorial"
-    check "Finish RSpec tutorial"
+  def completed_task(name)
+    check name
+  end
 
-    expect(page).to have_css "label#task_#{task.id}.completed"
-    expect(task.reload).to_not be_completed
+  def undo_complete_task(name)
+    uncheck name
+  end
+
+  def expect_complete_task(name)
+    aggregate_failures do
+      expect(page).to have_css "label.completed", text: name
+      expect(task.reload).to be_completed
+    end
+  end
+
+  def expect_incomplete_task(name)
+    aggregate_failures do
+      expect(page).to_not have_css "label.completed", text: name
+      expect(task.reload).to_not be_completed
+    end
   end
 end
